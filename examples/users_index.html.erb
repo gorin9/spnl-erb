@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html>
+<head><title>Users - <%= @app_name %></title></head>
+<body>
+  <h1>Users (<%= @users.length %>)</h1>
+  <ul>
+<% @users.each do |u| -%>
+    <li><%= u.upcase %></li>
+<% end -%>
+  </ul>
+  <p>Generated at <%= @now %></p>
+</body>
+</html>

@@ -1,0 +1,65 @@
+<!-- spnl-erb: Spinel-safe な Ruby 文法ストレステスト -->
+<h1>User Report: <%= @title %></h1>
+
+<!-- if/elsif/else -->
+<% if @users.length == 0 -%>
+  <p>No users.</p>
+<% elsif @users.length > 100 -%>
+  <p>Many users! (<%= @users.length %>)</p>
+<% else -%>
+  <p><%= @users.length %> users.</p>
+<% end -%>
+
+<!-- case/when (Symbol) -->
+<p>Status: <%
+  case @status
+  when :active   then result = "ACTIVE"
+  when :inactive then result = "INACTIVE"
+  when :pending  then result = "PENDING"
+  else result = "UNKNOWN"
+  end
+%><%= result %></p>
+
+<!-- 数値計算 + 三項演算子 -->
+<p>Average: <%= @users.length > 0 ? @total / @users.length : 0 %></p>
+
+<!-- ループ + ネスト -->
+<table>
+  <thead><tr><th>#</th><th>Name</th><th>Score</th></tr></thead>
+  <tbody>
+<% i = 0 -%>
+<% @users.each do |u| -%>
+<%   i = i + 1 -%>
+    <tr class="<%= i % 2 == 0 ? 'even' : 'odd' %>">
+      <td><%= i %></td>
+      <td><%= u %></td>
+      <td><%= (i * 10).to_s %></td>
+    </tr>
+<% end -%>
+  </tbody>
+</table>
+
+<!-- map + join (Array#select は Spinel で segfault するので避ける) -->
+<p>Upper-case: <%= @users.map { |u| u.upcase }.join(", ") %></p>
+
+<!-- filter 代替: each + push if -->
+<%
+  long = []
+  @users.each { |u| long.push(u) if u.length > 4 }
+%>
+<p>Long names count: <%= long.length %></p>
+
+<!-- 文字列操作 -->
+<p>Title (lower): <%= @title.downcase %></p>
+<p>Title (gsub): <%= @title.gsub("  ", " ") %></p>
+
+<!-- Hash アクセス (String key のみ — Symbol key だと each で壊れる) -->
+<ul>
+<% @meta.each do |k, v| -%>
+  <li><%= k %>: <%= v %></li>
+<% end -%>
+</ul>
+
+<%# このコメントは出力されない %>
+
+<footer>Generated: <%= @generated_at %></footer>

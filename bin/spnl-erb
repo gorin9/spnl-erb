@@ -1,0 +1,85 @@
+#!/usr/bin/env ruby
+# Usage:
+#   spnl-erb <input.erb>                            # body only -> stdout
+#   spnl-erb <input.erb> -c <ClassName>             # class wrapper
+#   spnl-erb <input.erb> -c <ClassName> -a name,items
+#   spnl-erb --batch views/                         # walk dir, emit *.generated.rb
+#   spnl-erb -h
+
+require_relative "../lib/spnl_erb"
+
+def usage
+  puts <<~U
+    spnl-erb v#{SpnlErb::VERSION}
+
+    Usage:
+      spnl-erb <input.erb>                        body-only Ruby to stdout
+      spnl-erb <input.erb> -c <Class> [-a attrs]  class wrapper
+      spnl-erb --batch <dir>                      walk dir, emit *.generated.rb next to each .erb
+      spnl-erb -h | --help
+
+    Options:
+      -c, --class NAME    wrap output in class NAME
+      -a, --attrs LIST    comma-separated ivar names (passed to initialize)
+      -m, --method NAME   method name (default: render)
+      -o, --output FILE   write to file (default: stdout)
+  U
+  exit 0
+end
+
+if ARGV.empty? || ARGV.include?("-h") || ARGV.include?("--help")
+  usage
+end
+
+if ARGV[0] == "--batch"
+  dir = ARGV[1] or (warn "spnl-erb: --batch requires a directory"; exit 1)
+  Dir.glob(File.join(dir, "**", "*.erb")).each do |path|
+    out_path = path.sub(/\.erb\z/, ".generated.rb")
+    template = File.read(path)
+
+    # infer class name from path: views/users/index.html.erb -> UsersIndexView
+    rel = path.sub(%r{\A#{Regexp.escape(dir)}/?}, "")
+    parts = rel.split("/").map { |p| p.sub(/\.html\.erb\z|\.erb\z/, "") }
+    class_name = parts.map { |p| p.split(/[_-]/).map(&:capitalize).join }.join + "View"
+
+    # ivar 自動検出: テンプレート中の @foo を attrs に
+    attrs = template.scan(/@(\w+)/).flatten.uniq
+
+    File.write(out_path, SpnlErb.compile_class(template, class_name: class_name, attrs: attrs))
+    puts "wrote #{out_path} (attrs: #{attrs.join(', ')})"
+  end
+  exit 0
+end
+
+input = ARGV.shift
+class_name = nil
+attrs = []
+method_name = "render"
+out_file = nil
+
+while (opt = ARGV.shift)
+  case opt
+  when "-c", "--class"  then class_name = ARGV.shift
+  when "-a", "--attrs"  then attrs = ARGV.shift.split(",")
+  when "-m", "--method" then method_name = ARGV.shift
+  when "-o", "--output" then out_file = ARGV.shift
+  else
+    warn "spnl-erb: unknown option #{opt}"
+    exit 1
+  end
+end
+
+template = File.read(input)
+
+result = if class_name
+  SpnlErb.compile_class(template, class_name: class_name, attrs: attrs, method_name: method_name)
+else
+  SpnlErb.compile_body(template)
+end
+
+if out_file
+  File.write(out_file, result)
+  puts "wrote #{out_file}"
+else
+  print result
+end
