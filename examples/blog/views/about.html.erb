@@ -1,0 +1,23 @@
+<section>
+  <h1>About <%= @site_name %></h1>
+  <p><%= @site_tagline %></p>
+
+  <h2>Stats</h2>
+  <ul>
+    <li>Total posts: <strong><%= @stats_posts %></strong></li>
+    <li>Total comments: <strong><%= @stats_comments %></strong></li>
+    <li>Founded: <strong><%= @founded %></strong></li>
+  </ul>
+
+  <h2>Tech stack</h2>
+  <ul>
+<% @tech.each do |item| -%>
+    <li><%= item %></li>
+<% end -%>
+  </ul>
+
+  <h2>Build size</h2>
+  <p>This page was rendered from <strong><%= @template_size_bytes %></strong> bytes
+  of ERB and is now part of a <strong><%= @binary_size_kb %> KB</strong> single-binary
+  HTTP server.</p>
+</section>

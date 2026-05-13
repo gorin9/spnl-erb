@@ -91,6 +91,49 @@ $ ./bin/app
 <p>bob</p>
 ```
 
+## 大きめのサンプル: `examples/blog/`
+
+ブログ風サイトの **multi-view + layout + model** 統合例 (400+ 行).
+4 つのテンプレート, 2 モデル, 1 ランナー (app.rb) からなり, AOT compile 後の
+単一バイナリが 3 ページの HTML を 16 ms で書き出す.
+
+```sh
+cd examples/blog/
+RUBY=ruby ./build.sh
+spinel app.rb -o blog_app
+./blog_app
+open out/index.html
+```
+
+詳細は [`examples/blog/README.md`](examples/blog/README.md) 参照.
+
+### 重要: stateless mode をデフォルトに
+
+Spinel は **`@var` に `Array<UserClass>` を保持すると SIGSEGV** する
+(blog example で発覚した制約).
+このため spnl-erb は `--mode stateless` をデフォルトとし, `class + ivar` ではなく
+**`module + class method`** を出力する:
+
+```ruby
+# ✅ デフォルト (stateless)
+module PostsIndexView
+  def self.render(posts, total_count)
+    _out = ""
+    _out = _out + posts.length.to_s
+    posts.each { |p| ... }     # 局所変数, @ 無し
+    _out
+  end
+end
+
+# 利用側
+PostsIndexView.render(posts, 42)
+```
+
+テンプレ作者は `@posts` と書いても OK — generator が局所変数に書き換える.
+
+旧 `class + initialize + render` 形式が必要なら `--mode instance` で出せる
+(ivar が安全な単純型のみ使う場合).
+
 ## テンプレ内で使える Ruby
 
 spnl-erb は **タグ内 (`<%= %>` `<% %>`) を pass-through で出力**するため,
@@ -160,11 +203,16 @@ require_relative "spnl-erb/lib/spnl_erb"
 SpnlErb.compile_body("<h1><%= @x %></h1>")
 # => "_out = \"\"\n_out = _out + ...\n_out"
 
-# class wrapper
+# class wrapper (default: stateless module + class method)
+SpnlErb.compile_class(template,
+  class_name: "UserView",
+  attrs: ["name", "email"])
+
+# ivar 形式が要るとき
 SpnlErb.compile_class(template,
   class_name: "UserView",
   attrs: ["name", "email"],
-  method_name: "render")
+  mode: :instance)
 ```
 
 ## ワークフロー統合

@@ -4,3 +4,5 @@
 /tmp/
 /vendor/
 Spinelfile.lock
+/examples/blog/out/
+/examples/blog/blog_app

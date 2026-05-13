@@ -1,0 +1,38 @@
+<section>
+  <h1>Latest posts</h1>
+  <p class="meta">Showing <%= @posts.length %> of <%= @total_count %> posts</p>
+
+  <% if @posts.length == 0 -%>
+  <p class="empty">No posts yet — be the first to write!</p>
+  <% else -%>
+  <%
+    i = 0
+    @posts.each do |p|
+      i = i + 1
+  -%>
+  <article>
+    <header>
+      <h1><a href="/posts/<%= p.slug %>"><%= p.title %></a></h1>
+      <p class="meta">
+        by <strong><%= p.author %></strong>
+        · <%= p.posted_date %>
+        · <%= p.reading_minutes %> min read
+      </p>
+      <p>
+<%      p.tags.each do |t| -%>
+        <span class="tag">#<%= t %></span>
+<%      end -%>
+      </p>
+    </header>
+    <p><%= p.excerpt(160) %></p>
+    <p class="stats">
+      <span>💬 <%= p.comments_count %> comments</span>
+      <span>👁 <%= p.views %> views</span>
+<%      if p.featured? -%>
+      <span>⭐ Featured</span>
+<%      end -%>
+    </p>
+  </article>
+<%  end -%>
+  <% end -%>
+</section>

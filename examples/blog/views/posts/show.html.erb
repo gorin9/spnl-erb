@@ -1,0 +1,56 @@
+<article>
+  <header>
+    <h1><%= @post.title %></h1>
+    <p class="meta">
+      by <strong><%= @post.author %></strong>
+      · <%= @post.posted_date %>
+      · <%= @post.reading_minutes %> min read
+      · <%= @post.views %> views
+    </p>
+    <p>
+<%    @post.tags.each do |t| -%>
+      <span class="tag">#<%= t %></span>
+<%    end -%>
+    </p>
+  </header>
+
+  <div>
+    <%= @post.body %>
+  </div>
+
+  <p class="meta">
+    Status:
+    <%
+      case @post.status
+      when :published then status_label = "Published"
+      when :draft     then status_label = "Draft (private)"
+      when :archived  then status_label = "Archived"
+      else status_label = "Unknown"
+      end
+    -%>
+    <strong><%= status_label %></strong>
+  </p>
+</article>
+
+<section>
+  <h2>Comments (<%= @comments.length %>)</h2>
+
+  <% if @comments.length == 0 -%>
+  <p class="empty">No comments yet.</p>
+  <% else -%>
+<%
+  @comments.each do |c|
+-%>
+  <div class="comment">
+    <p class="meta">
+      <strong><%= c.author %></strong>
+      · <%= c.posted_at %>
+<%    if c.edited? -%>
+      · <em>(edited)</em>
+<%    end -%>
+    </p>
+    <p><%= c.body %></p>
+  </div>
+<% end -%>
+  <% end -%>
+</section>

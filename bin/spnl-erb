@@ -19,10 +19,13 @@ def usage
       spnl-erb -h | --help
 
     Options:
-      -c, --class NAME    wrap output in class NAME
-      -a, --attrs LIST    comma-separated ivar names (passed to initialize)
+      -c, --class NAME    wrap output in class/module NAME
+      -a, --attrs LIST    comma-separated attr names
       -m, --method NAME   method name (default: render)
       -o, --output FILE   write to file (default: stdout)
+      --mode MODE         stateless (default, module + class method) | instance (class + ivar)
+                          NB: Spinel can't safely hold polymorphic Array<UserClass> in ivar.
+                          Stick to stateless for views that iterate model arrays.
   U
   exit 0
 end
@@ -56,6 +59,7 @@ class_name = nil
 attrs = []
 method_name = "render"
 out_file = nil
+mode = :stateless
 
 while (opt = ARGV.shift)
   case opt
@@ -63,6 +67,7 @@ while (opt = ARGV.shift)
   when "-a", "--attrs"  then attrs = ARGV.shift.split(",")
   when "-m", "--method" then method_name = ARGV.shift
   when "-o", "--output" then out_file = ARGV.shift
+  when "--mode"         then mode = ARGV.shift.to_sym
   else
     warn "spnl-erb: unknown option #{opt}"
     exit 1
@@ -72,7 +77,8 @@ end
 template = File.read(input)
 
 result = if class_name
-  SpnlErb.compile_class(template, class_name: class_name, attrs: attrs, method_name: method_name)
+  SpnlErb.compile_class(template, class_name: class_name, attrs: attrs,
+                        method_name: method_name, mode: mode)
 else
   SpnlErb.compile_body(template)
 end

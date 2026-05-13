@@ -51,10 +51,16 @@ out = SpnlErb.compile_body(src)
 raise "trim_right failed" if out.include?("\\nafter")
 raise "trim_right OK but found?" unless out.include?("after")
 
-# --- class wrapper ---
+# --- class wrapper :stateless (default) ---
 out = SpnlErb.compile_class("hi <%= @x %>", class_name: "V", attrs: ["x"])
-raise "class missing" unless out.include?("class V")
+raise "module missing"      unless out.include?("module V")
+raise "self.render missing" unless out.include?("def self.render(x)")
+raise "ivar should be stripped" if  out.include?("@x")
+
+# --- class wrapper :instance ---
+out = SpnlErb.compile_class("hi <%= @x %>", class_name: "V", attrs: ["x"], mode: :instance)
+raise "class missing"      unless out.include?("class V")
 raise "attr assign missing" unless out.include?("@x = x")
-raise "method def missing" unless out.include?("def render")
+raise "def render missing"  unless out.include?("def render")
 
 puts "all tests passed"
