@@ -1,36 +1,32 @@
 #!/bin/bash
-# Compile all *.erb templates in this blog example to *.generated.rb
-# Run from the example directory.
+# views/*.erb -> views/*.generated.rb (reopen BlogController)
+# 各 template は `def render_xxx; ...; end` メソッドを BlogController に足す.
 set -euo pipefail
 cd "$(dirname "$0")"
 
 SPNL_ERB=${SPNL_ERB:-../../bin/spnl-erb}
 RUBY=${RUBY:-ruby}
 
-echo "Compiling templates with $SPNL_ERB ..."
+echo "Compiling templates with $SPNL_ERB (mode: controller, target: BlogController)..."
 
-# layout: takes title + content + meta
 $RUBY $SPNL_ERB views/layout.html.erb \
-  -c LayoutView \
-  -a page_title,site_name,site_tagline,active_nav,content,year,generated_at,render_count \
+  --mode controller --target BlogController \
+  -m render_layout \
   -o views/layout.html.generated.rb
 
-# posts index: list of Post objects
 $RUBY $SPNL_ERB views/posts/index.html.erb \
-  -c PostsIndexView \
-  -a posts,total_count \
+  --mode controller --target BlogController \
+  -m render_posts_index \
   -o views/posts/index.html.generated.rb
 
-# posts show: single Post + comments
 $RUBY $SPNL_ERB views/posts/show.html.erb \
-  -c PostsShowView \
-  -a post,comments \
+  --mode controller --target BlogController \
+  -m render_posts_show \
   -o views/posts/show.html.generated.rb
 
-# about page
 $RUBY $SPNL_ERB views/about.html.erb \
-  -c AboutView \
-  -a site_name,site_tagline,stats_posts,stats_comments,founded,tech,template_size_bytes,binary_size_kb \
+  --mode controller --target BlogController \
+  -m render_about \
   -o views/about.html.generated.rb
 
 echo "Done."

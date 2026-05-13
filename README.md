@@ -107,32 +107,56 @@ open out/index.html
 
 詳細は [`examples/blog/README.md`](examples/blog/README.md) 参照.
 
-### 重要: stateless mode をデフォルトに
+### 3 つの mode の使い分け
 
-Spinel は **`@var` に `Array<UserClass>` を保持すると SIGSEGV** する
-(blog example で発覚した制約).
-このため spnl-erb は `--mode stateless` をデフォルトとし, `class + ivar` ではなく
-**`module + class method`** を出力する:
+| mode | 出力 | 利用側 | Spinel 互換性 |
+|---|---|---|---|
+| **`controller` (推奨, Rails 風)** | `class BlogController; def render_xxx; ...; end; end` (reopen) | `c.index → render_xxx (内部で @ivar セット済)` | ✅ |
+| `stateless` | `module XView; def self.render(args...); end; end` | `XView.render(posts, 42)` | ✅ (positional な引数が増えると面倒) |
+| `instance` | `class XView; def initialize(args); def render; end` | `XView.new(posts).render` | ⚠️ `@var = Array<UserClass>` で SIGSEGV |
+
+### Spinel の重要な落とし穴
+
+**`@var` に `Array<UserClass>` を保持すると SIGSEGV** する条件:
+- `def initialize(posts); @posts = posts; end` のように **method 引数を経由して** ivar に代入
+- これは Spinel の whole-program 型推論が param → ivar の流路で壊れる
+
+**安全なパターン** (controller mode が活用):
+- `def index; @posts = Post.all; end` のように **class method 経由で代入**
+- → 型情報が intact、ivar が正しく iter できる
+
+### controller mode の使用例 (推奨)
 
 ```ruby
-# ✅ デフォルト (stateless)
-module PostsIndexView
-  def self.render(posts, total_count)
+# views/posts/index.html.erb (人が書く)
+<h1><%= @page_title %></h1>
+<% @posts.each do |p| %>
+  <article><%= p.title %></article>
+<% end %>
+
+# spnl-erb 出力 (BlogController を reopen)
+class BlogController
+  def render_posts_index
     _out = ""
-    _out = _out + posts.length.to_s
-    posts.each { |p| ... }     # 局所変数, @ 無し
+    _out = _out + "<h1>" + @page_title + "</h1>"  # ← @ そのまま
+    @posts.each do |p|                            # ← @ そのまま
+      _out = _out + "<article>" + p.title + "</article>"
+    end
     _out
   end
 end
 
-# 利用側
-PostsIndexView.render(posts, 42)
+# 人が書く controller
+class BlogController
+  def index
+    @page_title = "Latest"
+    @posts = Post.all              # ← class method 経由なので Array<Post> 安全
+    respond(render_posts_index)    # 引数なしで render
+  end
+end
 ```
 
-テンプレ作者は `@posts` と書いても OK — generator が局所変数に書き換える.
-
-旧 `class + initialize + render` 形式が必要なら `--mode instance` で出せる
-(ivar が安全な単純型のみ使う場合).
+引数の順序を気にしないで `@var` でアクセスできる、つまり Rails のフィーリング.
 
 ## テンプレ内で使える Ruby
 

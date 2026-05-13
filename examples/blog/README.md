@@ -1,132 +1,137 @@
-# Blog example
+# Blog example (Controller pattern)
 
-spnl-erb の **multi-view / model / layout** 統合サンプル. ブログ風サイトの
-index / show / about の 3 ページを **AOT compile 後の単一バイナリ**から生成する.
+spnl-erb の **`--mode controller`** を使った Rails 風 multi-page サンプル.
 
 ## 構成
 
 ```
 examples/blog/
-├── views/
-│   ├── layout.html.erb           ← 共通レイアウト (nav / footer / content slot)
-│   ├── about.html.erb            ← About ページ
-│   └── posts/
-│       ├── index.html.erb        ← Post 一覧 (loop, conditional, tag)
-│       └── show.html.erb         ← 1 Post + comments (case/when, edited 判定)
+├── app.rb                          ← BlogController + main
 ├── models/
-│   ├── post.rb                   ← title/author/tags/body + 計算 method
-│   │                                 (excerpt / reading_minutes / posted_date)
-│   └── comment.rb                ← author/body + edited? + posted_at (相対時刻)
-├── app.rb                        ← データ生成 + 全 view render + out/*.html 書き出し
-├── build.sh                      ← spnl-erb で *.erb -> *.generated.rb
-└── out/                          ← 生成 HTML (.gitignore)
+│   ├── post.rb                     ← Post (POJO + Post.all class method)
+│   └── comment.rb                  ← Comment (POJO + Comment.recent)
+├── views/
+│   ├── layout.html.erb             ← nav / footer / @content slot
+│   ├── about.html.erb              ← About ページ
+│   └── posts/
+│       ├── index.html.erb          ← 一覧
+│       └── show.html.erb           ← 1 投稿 + comments
+├── build.sh                        ← *.erb → *.generated.rb (BlogController reopen)
+└── out/                            ← 生成 HTML (.gitignore)
 ```
 
-合計 **400+ 行** (views 200 / models 100 / app 110), 出力 HTML **10KB**.
+合計 **400+ 行 / 出力 HTML 約 10KB / 3 page を AOT バイナリで 16ms render**.
 
 ## ビルド & 実行
 
 ```sh
 cd examples/blog/
-
-# 1. テンプレートをコンパイル (CRuby, 1 秒未満)
 RUBY=ruby ./build.sh
-
-# 2. Ruby を Spinel で AOT compile (約 3 秒)
 spinel app.rb -o blog_app
-
-# 3. 実行 -> out/*.html 生成
 ./blog_app
-# wrote out/index.html (4138 bytes)
-# wrote out/posts/show.html (3360 bytes)
+# wrote out/index.html (4001 bytes)
+# wrote out/posts/show.html (3302 bytes)
 # wrote out/about.html (2638 bytes)
-
-# 4. ブラウザで確認
 open out/index.html
 ```
 
-## 何を実演しているか
+## Controller pattern の何が嬉しいか
 
-### View
-
-| 機能 | テンプレで使用 |
-|---|---|
-| **共通 layout** (slot 機能) | `<%= @content %>` で文字列を流し込む |
-| **条件分岐** | `<% if @posts.length == 0 %>...<% else %>...<% end %>` |
-| **case/when (Symbol)** | `case @post.status; when :published ... ; when :draft` |
-| **ループ + 局所変数** | `<% i = 0 %><% posts.each do |p| %><% i = i + 1 %>` |
-| **三項演算子** | `<%= active_nav == "home" ? "active" : "" %>` |
-| **method call chain** | `<%= p.tags.each ... %>`, `<%= post.title.upcase %>` |
-| **Object method 呼び出し** | `<%= p.excerpt(160) %>`, `<%= comment.edited? %>` |
-| **HTML escape は手動** | 必要な箇所では `H.html_escape(s)` を呼ぶ (本例は省略) |
-
-### Model
-
-| 機能 | 実装場所 |
-|---|---|
-| POJO (attr_accessor + initialize) | `Post.new(id, slug, title, ...)` |
-| 計算 method | `Post#reading_minutes` (語数 / 200 wpm) |
-| 文字列 helper | `Post#excerpt(n)` |
-| 日付計算 (Time API 制限) | `Post#posted_date` (JDN 逆算で "YYYY-MM-DD") |
-| 相対時刻 | `Comment#posted_at` ("3 hours ago") |
-| 状態判定 | `Post#featured?`, `Comment#edited?` |
-| Symbol 状態 enum | `Post#status` (`:published` / `:draft` / `:archived`) |
-
-### App コード
-
-| 機能 | 例 |
-|---|---|
-| Top-level data 生成 | `make_posts` / `make_comments` |
-| View 呼び出し (module 形式) | `PostsIndexView.render(posts, total)` |
-| Layout 適用 | `LayoutView.render(title, ..., content, ...)` |
-| File output | `File.write(path, html_str)` |
-
-## 重要な Spinel 制約への対応
-
-このサンプルは **2 つの Spinel 制約に直面**し,
-それぞれ以下の方法で回避している.
-
-### 1. `@var` に `Array<UserClass>` を保持すると SIGSEGV
+### Before (`--mode stateless`): positional 引数地獄
 
 ```ruby
-# ❌ クラッシュする
-class V
-  def initialize(posts); @posts = posts; end
-  def render; @posts.each { ... }; end
-end
+LayoutView.render(
+  page_title, site_name, site_tagline, active_nav, content,
+  year, generated_at, render_count
+)
+```
 
-# ✅ stateless module (spnl-erb のデフォルト)
-module V
-  def self.render(posts)
-    posts.each { ... }
+8 引数. 順序を間違えるとサイレントに壊れる. View 追加で毎回 signature 更新.
+
+### After (`--mode controller`): @ivar で意味的アクセス
+
+```ruby
+class BlogController
+  def index
+    @posts = Post.all                  # ← class method 経由なので Array<Post> も @ に OK
+    @page_title = "Latest"
+    @active_nav = "home"
+    setup_chrome("Latest posts", "home", 1)
+    @content = render_posts_index      # 引数なし
+    render_layout                       # 引数なし — @ivar から取る
   end
 end
 ```
 
-`spnl-erb` はデフォルトで `--mode stateless` を採用し,
-**class instance variable を完全に避ける**.
-テンプレートで `@x` と書いても generator が局所変数 `x` に書き換える.
+template 側はそのまま `@var` で参照. 生成 method (`render_posts_index` 等) は
+**BlogController を reopen** して定義される — 別ファイルで `class BlogController`
+を再度書く Ruby の open class 機能を利用.
 
-### 2. `Dir.exist?` / `Dir.mkdir` が dispatch しない
+## 生成された code の中身 (例: views/posts/index.html.erb)
 
-`build.sh` で `mkdir -p out/posts` を事前実行する.
-Spinel は file 書き込みは `File.write` で OK だが, ディレクトリ作成は shell に任せる.
+```ruby
+# AUTO-GENERATED by spnl-erb — DO NOT EDIT
+# mode: controller (reopen BlogController, ivar 直接参照)
+class BlogController
+  def render_posts_index
+    _out = ""
+    _out = _out + "<section>\n  <h1>Latest posts</h1>\n  <p class=\"meta\">Showing "
+    _out = _out + (@posts.length).to_s        # ← @posts そのまま使える
+    _out = _out + " of "
+    _out = _out + (@total_count).to_s
+    # ...
+    @posts.each do |p|                         # ← @posts.each も問題なし
+      _out = _out + "<article>" + ... + (p.title).to_s + ...
+    end
+    _out
+  end
+end
+```
+
+## Spinel 制約と回避策
+
+### 制約 1: `@var = Array<UserClass>` は外から渡すと SIGSEGV
+
+```ruby
+# ❌ クラッシュ
+class V
+  def initialize(posts); @posts = posts; end
+  def render; @posts.each {...}; end
+end
+V.new(posts).render
+
+# ✅ Controller 内で代入なら OK
+class C
+  def index
+    @posts = Post.all     # ← class method 経由
+  end
+end
+```
+
+Spinel の whole-program 型推論は **「method 引数を ivar に代入する流路」**が苦手.
+**「method 内で class method を呼んで ivar に代入」**は型情報が intact.
+
+### 制約 2: `Dir.exist?` / `Dir.mkdir` が dispatch しない
+
+`build.sh` で `mkdir -p out/posts` を事前実行. file 書き込みは `File.write` でOK.
+
+## controller mode のシグネチャ
+
+```
+spnl-erb <input.erb> --mode controller --target <ClassName> -m <method_name> -o <out.rb>
+```
+
+`build.sh` を見れば 4 行で 4 view を生成している. 必要に応じて Makefile / Rake
+にも組み込み可.
 
 ## ベンチマーク
 
-```
-- spnl-erb compile (4 templates):    35 ms (CRuby)
-- spinel compile (app.rb + views):    3.0 s
-- bin/blog_app 実行 (3 page output):  16 ms (Spinel binary)
-- 出力 HTML 合計サイズ:               10,136 bytes
-```
+| ステップ | 時間 |
+|---|---|
+| spnl-erb compile (4 templates, CRuby) | 35 ms |
+| spinel compile (app.rb + view 群) | 3.0 s |
+| `./blog_app` 実行 (3 page render + write) | 16 ms |
+| 出力 HTML 合計 | 10,136 bytes |
 
-3 ページ render が 16ms = **1 page あたり 5ms**.
-runtime ERB の Rails と比べて 1〜2 桁速い (eval/parser コストなし).
-
-## 改造のヒント
-
-- **/archives ページ追加**: 月別アーカイブで Post をソート (`Post.posted_date` で group_by)
-- **本物の HTTP サーバ化**: spinel-demo の httpd_async と組み合わせて Server-Side Rendering
-- **DB 統合**: spnl-schema で User/Post を生成し, app.rb の make_posts を `Post.all` に置換
-- **partial 風機能**: `LayoutView.render` のように content slot を文字列で渡せば実質 partial
+3 ページ render が 16ms ⇒ **1 page ≈ 5ms**. 同等を Rails で書くと runtime ERB
++ ActionView の overhead で 10〜30 ms / page.

@@ -23,9 +23,13 @@ def usage
       -a, --attrs LIST    comma-separated attr names
       -m, --method NAME   method name (default: render)
       -o, --output FILE   write to file (default: stdout)
-      --mode MODE         stateless (default, module + class method) | instance (class + ivar)
-                          NB: Spinel can't safely hold polymorphic Array<UserClass> in ivar.
-                          Stick to stateless for views that iterate model arrays.
+      --mode MODE         controller (推奨, reopen + @ivar) | stateless | instance
+                          - controller: reopen target class. Templates use @x freely.
+                            Controller method 内で `@posts = Post.all` 等で代入する限り
+                            Array<UserClass> も OK.
+                          - stateless: module + class method, local var. Spinel-safe.
+                          - instance:  class + initialize + render (simple types only).
+      --target NAME       (--mode controller) reopen 対象の class 名. default "Controller"
   U
   exit 0
 end
@@ -60,6 +64,7 @@ attrs = []
 method_name = "render"
 out_file = nil
 mode = :stateless
+target_class = nil
 
 while (opt = ARGV.shift)
   case opt
@@ -68,6 +73,7 @@ while (opt = ARGV.shift)
   when "-m", "--method" then method_name = ARGV.shift
   when "-o", "--output" then out_file = ARGV.shift
   when "--mode"         then mode = ARGV.shift.to_sym
+  when "--target"       then target_class = ARGV.shift
   else
     warn "spnl-erb: unknown option #{opt}"
     exit 1
@@ -76,9 +82,13 @@ end
 
 template = File.read(input)
 
-result = if class_name
-  SpnlErb.compile_class(template, class_name: class_name, attrs: attrs,
-                        method_name: method_name, mode: mode)
+result = if class_name || mode == :controller
+  SpnlErb.compile_class(template,
+                        class_name: class_name || "X",
+                        attrs: attrs,
+                        method_name: method_name,
+                        mode: mode,
+                        target_class: target_class)
 else
   SpnlErb.compile_body(template)
 end

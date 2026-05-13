@@ -5,6 +5,31 @@ class Post
   attr_accessor :id, :slug, :title, :author, :body, :tags,
                 :posted_at_epoch, :views, :comments_count, :status, :is_featured
 
+  def self.all
+    body1 = "Spinel is a Ruby AOT compiler that fits in 22KB. " \
+          + "It does whole-program type inference. " \
+          + "It targets serious systems programming with Ruby ergonomics. " \
+          + "There is no runtime require, no method_missing, no eval. " \
+          + "Templates are compiled at build time via spnl-erb. " \
+          + "Models come from spnl-schema."
+    body2 = "spnl-erb takes .erb templates and emits Spinel-friendly Ruby. " \
+          + "No runtime eval. No binding. No string interpolation at request time. " \
+          + "Just pre-baked _out = _out + literal concatenation."
+    body3 = "What if your ORM was just a generated file? " \
+          + "spnl-schema reads CREATE TABLE statements and emits class definitions."
+    out = []
+    out.push(Post.new(1, "spinel-philosophy", "Spinel philosophy in 6 lines",
+                      "matz", body1, ["spinel", "philosophy", "aot"],
+                      1700000000, 1234, 8, :published, true))
+    out.push(Post.new(2, "spnl-erb-intro", "Introducing spnl-erb",
+                      "gorin9", body2, ["spnl-erb", "build-time"],
+                      1701000000, 567, 3, :published, false))
+    out.push(Post.new(3, "spnl-schema-intro", "Compile-time ActiveRecord with spnl-schema",
+                      "gorin9", body3, ["spnl-schema", "orm"],
+                      1702500000, 890, 0, :draft, false))
+    out
+  end
+
   def initialize(id, slug, title, author, body, tags,
                  posted_at_epoch, views, comments_count, status, is_featured)
     @id              = id

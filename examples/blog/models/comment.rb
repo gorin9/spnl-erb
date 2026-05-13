@@ -1,6 +1,18 @@
 class Comment
   attr_accessor :id, :author, :body, :posted_at_epoch, :edited_at_epoch
 
+  def self.recent
+    now = Time.now.to_i
+    out = []
+    out.push(Comment.new(1, "alice", "Great post! The 22KB number is wild.",
+                         now - 3700, now - 3700))
+    out.push(Comment.new(2, "bob",   "How does this compare to Crystal?",
+                         now - 1800, now - 1800))
+    out.push(Comment.new(3, "carol", "I had to fix a typo here.",
+                         now - 600,  now - 300))
+    out
+  end
+
   def initialize(id, author, body, posted_at_epoch, edited_at_epoch)
     @id              = id
     @author          = author
