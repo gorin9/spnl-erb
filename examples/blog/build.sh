@@ -1,13 +1,14 @@
 #!/bin/bash
-# views/*.erb -> views/*.generated.rb (reopen BlogController)
-# 各 template は `def render_xxx; ...; end` メソッドを BlogController に足す.
+# *.erb -> *.generated.rb (spnl-erb)
+# blog_controller.rb -> router.generated.rb (spnl-router)
 set -euo pipefail
 cd "$(dirname "$0")"
 
 SPNL_ERB=${SPNL_ERB:-../../bin/spnl-erb}
+SPNL_ROUTER=${SPNL_ROUTER:-../../../spnl-router-repo/bin/spnl-router}
 RUBY=${RUBY:-ruby}
 
-echo "Compiling templates with $SPNL_ERB (mode: controller, target: BlogController)..."
+echo "==> spnl-erb (view templates)"
 
 $RUBY $SPNL_ERB views/layout.html.erb \
   --mode controller --target BlogController \
@@ -29,8 +30,11 @@ $RUBY $SPNL_ERB views/about.html.erb \
   -m render_about \
   -o views/about.html.generated.rb
 
-echo "Done."
-ls -la views/*.generated.rb views/posts/*.generated.rb
+echo "==> spnl-router (controller -> dispatcher)"
 
-# Spinel の Dir.mkdir が動かないため出力先 dir を build.sh で用意
+$RUBY $SPNL_ROUTER blog_controller.rb -o router.generated.rb
+
+echo "==> Done."
+ls -la views/*.generated.rb views/posts/*.generated.rb router.generated.rb
+
 mkdir -p out/posts
