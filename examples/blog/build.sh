@@ -5,7 +5,7 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 SPNL_ERB=${SPNL_ERB:-../../bin/spnl-erb}
-SPNL_ROUTER=${SPNL_ROUTER:-../../../spnl-router-repo/bin/spnl-router}
+SPNL_ROUTER=${SPNL_ROUTER:-../../../spnl-router/bin/spnl-router}
 RUBY=${RUBY:-ruby}
 
 echo "==> spnl-erb (view templates)"
@@ -37,4 +37,4 @@ $RUBY $SPNL_ROUTER blog_controller.rb -o router.generated.rb
 echo "==> Done."
 ls -la views/*.generated.rb views/posts/*.generated.rb router.generated.rb
 
-mkdir -p out/posts
+mkdir -p public/posts

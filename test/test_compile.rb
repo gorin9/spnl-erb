@@ -1,66 +1,23 @@
-#!/usr/bin/env ruby
-# CRuby で実行する spnl-erb のユニットテスト
+require "erb"
 require_relative "../lib/spnl_erb"
-
-def assert_equal(expected, actual, msg = "")
-  if expected != actual
-    warn "FAIL: #{msg}"
-    warn "  expected: #{expected.inspect}"
-    warn "  actual:   #{actual.inspect}"
-    exit 1
-  end
+def assert(value, message); raise message unless value; end
+samples = ['hello', '<%= name %>', '<%= "@email" %>', "before\n  <%- x = 1 -%>\nafter <%= x %>", '<%%= literal %>', '<% [1,2].each do |n| %><%= n %><% end %>', '日本語 <%= "雪" %>']
+name = 'Alice'
+samples.each do |template|
+  expected = ERB.new(template, trim_mode: '-').result(binding)
+  actual = eval(SpnlErb.compile_body(template), binding)
+  assert(actual == expected, "ERB parity: #{template}")
 end
+src = SpnlErb.compile_class('<%= "@email" %>:<%= @name %>', class_name: 'View', attrs: ['name'])
+eval(src)
+assert(View.render('Alice') == '@email:Alice', 'stateless token rewrite')
+assert(SpnlErb.attributes('<%= "@fake" %><%= @real %>') == ['real'], 'attribute detection')
+eval(SpnlErb.compile_class('<%= @name %>', class_name: 'InstanceView', attrs: ['name'], mode: :instance))
+assert(InstanceView.new('雪').render == '雪', 'instance mode')
+eval(SpnlErb.compile_class('<%= @name %>', class_name: 'Unused', target_class: 'Controller', mode: :controller))
+c = Controller.new;c.instance_variable_set(:@name, 'C');assert(c.render == 'C', 'controller mode')
+puts 'ERB parity, modes, UTF-8 and lexical rewriting passed'
 
-# --- literal only ---
-out = SpnlErb.compile_body("hello world")
-assert_equal "_out = \"\"\n_out = _out + \"hello world\"\n_out", out, "literal only"
-
-# --- <%= expr %> ---
-out = SpnlErb.compile_body("<%= name %>")
-assert_equal "_out = \"\"\n_out = _out + (name).to_s\n_out", out, "expr only"
-
-# --- mix ---
-out = SpnlErb.compile_body("Hi, <%= n %>!")
-expected = <<~RUBY.chomp
-  _out = ""
-  _out = _out + "Hi, "
-  _out = _out + (n).to_s
-  _out = _out + "!"
-  _out
-RUBY
-assert_equal expected, out, "literal + expr"
-
-# --- <% code %> ---
-out = SpnlErb.compile_body("<% x = 1 %>val=<%= x %>")
-expected = <<~RUBY.chomp
-  _out = ""
-  x = 1
-  _out = _out + "val="
-  _out = _out + (x).to_s
-  _out = _out + ""
-  _out
-RUBY
-# strict equality may differ due to trim; check inclusion instead
-raise "code block missing" unless out.include?("x = 1")
-raise "expr emit missing" unless out.include?("(x).to_s")
-
-# --- trim mode <% -%> ---
-src = "before\n<% true -%>\nafter"
-out = SpnlErb.compile_body(src)
-# the literal "\nafter" -> "after" because of -%>
-raise "trim_right failed" if out.include?("\\nafter")
-raise "trim_right OK but found?" unless out.include?("after")
-
-# --- class wrapper :stateless (default) ---
-out = SpnlErb.compile_class("hi <%= @x %>", class_name: "V", attrs: ["x"])
-raise "module missing"      unless out.include?("module V")
-raise "self.render missing" unless out.include?("def self.render(x)")
-raise "ivar should be stripped" if  out.include?("@x")
-
-# --- class wrapper :instance ---
-out = SpnlErb.compile_class("hi <%= @x %>", class_name: "V", attrs: ["x"], mode: :instance)
-raise "class missing"      unless out.include?("class V")
-raise "attr assign missing" unless out.include?("@x = x")
-raise "def render missing"  unless out.include?("def render")
-
-puts "all tests passed"
+template = "<% message = <<TEXT\n日本語\nTEXT\n%><%= message %>"
+eval(SpnlErb.compile_class(template,class_name:'HeredocView'))
+assert(HeredocView.render == ERB.new(template,trim_mode:'-').result,'heredoc whitespace and source encoding')

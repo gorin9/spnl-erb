@@ -30,13 +30,13 @@ def write_file(path, content)
 end
 
 # 4) URL を Router に渡すだけ. HTTP loop で respond_v11 する場合も同じ.
-write_file("out/index.html",      Router.dispatch("/"))
-write_file("out/posts/show.html", Router.dispatch("/posts/0"))
-write_file("out/about.html",      Router.dispatch("/about"))
+write_file("public/index.html",      Router.dispatch("/"))
+write_file("public/posts/show.html", Router.dispatch("/posts/0"))
+write_file("public/about.html",      Router.dispatch("/about"))
 
 # 未定義 path は "404"
 not_found = Router.dispatch("/nonexistent")
 puts ""
 puts "404 sample: " + not_found
 puts ""
-puts "Open out/index.html in a browser."
+puts "Open public/index.html in a browser."

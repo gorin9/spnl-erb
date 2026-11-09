@@ -1,3 +1,5 @@
+> Original May 2026 narrative. Build scripts and generated Ruby are updated; old performance numbers and compiler limitations below are historical. HTML output is written under public/.
+
 # Blog example (Controller pattern)
 
 spnl-erb の **`--mode controller`** を使った Rails 風 multi-page サンプル.
@@ -17,7 +19,7 @@ examples/blog/
 │       ├── index.html.erb          ← 一覧
 │       └── show.html.erb           ← 1 投稿 + comments
 ├── build.sh                        ← *.erb → *.generated.rb (BlogController reopen)
-└── out/                            ← 生成 HTML (.gitignore)
+└── public/                            ← 生成 HTML (.gitignore)
 ```
 
 合計 **400+ 行 / 出力 HTML 約 10KB / 3 page を AOT バイナリで 16ms render**.
@@ -29,10 +31,10 @@ cd examples/blog/
 RUBY=ruby ./build.sh
 spinel app.rb -o blog_app
 ./blog_app
-# wrote out/index.html (4001 bytes)
-# wrote out/posts/show.html (3302 bytes)
-# wrote out/about.html (2638 bytes)
-open out/index.html
+# wrote public/index.html (4001 bytes)
+# wrote public/posts/show.html (3302 bytes)
+# wrote public/about.html (2638 bytes)
+open public/index.html
 ```
 
 ## Controller pattern の何が嬉しいか
@@ -113,7 +115,7 @@ Spinel の whole-program 型推論は **「method 引数を ivar に代入する
 
 ### 制約 2: `Dir.exist?` / `Dir.mkdir` が dispatch しない
 
-`build.sh` で `mkdir -p out/posts` を事前実行. file 書き込みは `File.write` でOK.
+`build.sh` で `mkdir -p public/posts` を事前実行. file 書き込みは `File.write` でOK.
 
 ## controller mode のシグネチャ
 

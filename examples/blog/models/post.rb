@@ -6,7 +6,7 @@ class Post
                 :posted_at_epoch, :views, :comments_count, :status, :is_featured
 
   def self.all
-    body1 = "Spinel is a Ruby AOT compiler that fits in 22KB. " \
+    body1 = "Spinel compiles a supported Ruby subset to native executables. " \
           + "It does whole-program type inference. " \
           + "It targets serious systems programming with Ruby ergonomics. " \
           + "There is no runtime require, no method_missing, no eval. " \
@@ -14,7 +14,7 @@ class Post
           + "Models come from spnl-schema."
     body2 = "spnl-erb takes .erb templates and emits Spinel-friendly Ruby. " \
           + "No runtime eval. No binding. No string interpolation at request time. " \
-          + "Just pre-baked _out = _out + literal concatenation."
+          + "Standard ERB source becomes an ordinary Ruby rendering method."
     body3 = "What if your ORM was just a generated file? " \
           + "spnl-schema reads CREATE TABLE statements and emits class definitions."
     out = []
@@ -49,27 +49,9 @@ class Post
     @is_featured
   end
 
-  # epoch -> "YYYY-MM-DD" (UTC, 自前で組み立て)
-  # Spinel の Time#strftime は使えないため Julian day から逆算する.
+  # Standard Time formatting replaces the prototype's calendar arithmetic.
   def posted_date
-    days = @posted_at_epoch / 86400
-    jdn  = 2440588 + days
-    j  = jdn + 32044
-    g  = j / 146097
-    dg = j % 146097
-    c  = (dg / 36524 + 1) * 3 / 4
-    dc = dg - c * 36524
-    b  = dc / 1461
-    db = dc % 1461
-    a  = (db / 365 + 1) * 3 / 4
-    da = db - a * 365
-    y  = g * 400 + c * 100 + b * 4 + a
-    m  = (da * 5 + 308) / 153 - 2
-    d  = da - (m + 4) * 153 / 5 + 122
-    year  = y - 4800 + (m + 2) / 12
-    month = (m + 2) % 12 + 1
-    day   = d + 1
-    pad2(year, 4) + "-" + pad2(month, 2) + "-" + pad2(day, 2)
+    Time.at(@posted_at_epoch).utc.strftime('%Y-%m-%d')
   end
 
   # 200 wpm 想定の読書時間 (英文を字数 / 5 で語数推定)

@@ -1,101 +1,48 @@
 #!/usr/bin/env ruby
-# Usage:
-#   spnl-erb <input.erb>                            # body only -> stdout
-#   spnl-erb <input.erb> -c <ClassName>             # class wrapper
-#   spnl-erb <input.erb> -c <ClassName> -a name,items
-#   spnl-erb --batch views/                         # walk dir, emit *.generated.rb
-#   spnl-erb -h
-
+# frozen_string_literal: true
+require "optparse"
 require_relative "../lib/spnl_erb"
-
-def usage
-  puts <<~U
-    spnl-erb v#{SpnlErb::VERSION}
-
-    Usage:
-      spnl-erb <input.erb>                        body-only Ruby to stdout
-      spnl-erb <input.erb> -c <Class> [-a attrs]  class wrapper
-      spnl-erb --batch <dir>                      walk dir, emit *.generated.rb next to each .erb
-      spnl-erb -h | --help
-
-    Options:
-      -c, --class NAME    wrap output in class/module NAME
-      -a, --attrs LIST    comma-separated attr names
-      -m, --method NAME   method name (default: render)
-      -o, --output FILE   write to file (default: stdout)
-      --mode MODE         controller (推奨, reopen + @ivar) | stateless | instance
-                          - controller: reopen target class. Templates use @x freely.
-                            Controller method 内で `@posts = Post.all` 等で代入する限り
-                            Array<UserClass> も OK.
-                          - stateless: module + class method, local var. Spinel-safe.
-                          - instance:  class + initialize + render (simple types only).
-      --target NAME       (--mode controller) reopen 対象の class 名. default "Controller"
-  U
-  exit 0
+opts = {attrs: [], method_name: "render", mode: :stateless}
+batch = nil
+output = nil
+parser = OptionParser.new do |o|
+  o.banner = "Usage: spnl-erb TEMPLATE [-c NAME] [--mode stateless|instance|controller]\n       spnl-erb --batch DIR [-c NAME --mode controller]"
+  o.on("-c", "--class NAME") { |v| opts[:class_name] = v }
+  o.on("-a", "--attrs LIST") { |v| opts[:attrs] = v.split(',') }
+  o.on("-m", "--method NAME") { |v| opts[:method_name] = v }
+  o.on("--mode MODE") { |v| opts[:mode] = v.to_sym }
+  o.on("--target NAME") { |v| opts[:target_class] = v }
+  o.on("-o", "--output FILE") { |v| output = v }
+  o.on("--batch DIR") { |v| batch = v }
+  o.on("-h", "--help") { puts o; exit }
 end
-
-if ARGV.empty? || ARGV.include?("-h") || ARGV.include?("--help")
-  usage
-end
-
-if ARGV[0] == "--batch"
-  dir = ARGV[1] or (warn "spnl-erb: --batch requires a directory"; exit 1)
-  Dir.glob(File.join(dir, "**", "*.erb")).each do |path|
-    out_path = path.sub(/\.erb\z/, ".generated.rb")
-    template = File.read(path)
-
-    # infer class name from path: views/users/index.html.erb -> UsersIndexView
-    rel = path.sub(%r{\A#{Regexp.escape(dir)}/?}, "")
-    parts = rel.split("/").map { |p| p.sub(/\.html\.erb\z|\.erb\z/, "") }
-    class_name = parts.map { |p| p.split(/[_-]/).map(&:capitalize).join }.join + "View"
-
-    # ivar 自動検出: テンプレート中の @foo を attrs に
-    attrs = template.scan(/@(\w+)/).flatten.uniq
-
-    File.write(out_path, SpnlErb.compile_class(template, class_name: class_name, attrs: attrs))
-    puts "wrote #{out_path} (attrs: #{attrs.join(', ')})"
-  end
-  exit 0
-end
-
-input = ARGV.shift
-class_name = nil
-attrs = []
-method_name = "render"
-out_file = nil
-mode = :stateless
-target_class = nil
-
-while (opt = ARGV.shift)
-  case opt
-  when "-c", "--class"  then class_name = ARGV.shift
-  when "-a", "--attrs"  then attrs = ARGV.shift.split(",")
-  when "-m", "--method" then method_name = ARGV.shift
-  when "-o", "--output" then out_file = ARGV.shift
-  when "--mode"         then mode = ARGV.shift.to_sym
-  when "--target"       then target_class = ARGV.shift
+begin
+  parser.parse!
+  if batch
+    raise ArgumentError, "--output cannot be used with --batch" if output
+    files = Dir.glob(File.join(batch, '**', '*.erb')).sort
+    raise ArgumentError, "no templates under #{batch}" if files.empty?
+    files.each do |path|
+      template = File.read(path)
+      rel = path.delete_prefix(batch.sub(%r{/$}, '') + '/')
+      stem = rel.sub(/(?:\.html)?\.erb\z/, '')
+      name = stem.split(/[\/_-]/).map(&:capitalize).join + 'View'
+      args = opts.merge(class_name: opts[:class_name] || name, attrs: SpnlErb.attributes(template), source_path: path)
+      args[:method_name] = 'render_' + stem.tr('/-', '__') if opts[:mode] == :controller
+      File.write(path.sub(/\.erb\z/, '.generated.rb'), SpnlErb.compile_class(template, **args))
+    end
   else
-    warn "spnl-erb: unknown option #{opt}"
-    exit 1
+    raise ArgumentError, "expected one template" unless ARGV.length == 1
+    path = ARGV.first
+    template = File.read(path)
+    result = if opts[:class_name] || opts[:mode] == :controller
+      SpnlErb.compile_class(template, **opts.merge(class_name: opts[:class_name] || 'View', source_path: path))
+    else
+      SpnlErb.compile_body(template)
+    end
+    output ? File.write(output, result) : print(result)
   end
-end
-
-template = File.read(input)
-
-result = if class_name || mode == :controller
-  SpnlErb.compile_class(template,
-                        class_name: class_name || "X",
-                        attrs: attrs,
-                        method_name: method_name,
-                        mode: mode,
-                        target_class: target_class)
-else
-  SpnlErb.compile_body(template)
-end
-
-if out_file
-  File.write(out_file, result)
-  puts "wrote #{out_file}"
-else
-  print result
+rescue ArgumentError, OptionParser::ParseError, Errno::ENOENT => e
+  warn "spnl-erb: #{e.message}"
+  exit 1
 end

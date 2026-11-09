@@ -6,3 +6,10 @@
 Spinelfile.lock
 /examples/blog/out/
 /examples/blog/blog_app
+
+/.bundle/
+/*.gem
+/Gemfile.lock
+/spin.lock
+
+/examples/blog/public/
