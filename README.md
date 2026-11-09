@@ -1,7 +1,8 @@
 # spnl-erb
 
 Compile ERB **on the build host** to ordinary Ruby methods that Spinel can compile.
-The generator uses CRuby's ERB compiler; generated code needs no runtime eval or binding.
+The generator pins the standard ERB gem 2.2.3 for reproducible generated source across
+CRuby versions; generated code needs no runtime eval or binding.
 Spinel's bundled runtime ERB still does not replace this tool for templates with loops
 or arbitrary Ruby expressions.
 

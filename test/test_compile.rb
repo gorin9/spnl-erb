@@ -1,5 +1,5 @@
-require "erb"
 require_relative "../lib/spnl_erb"
+require "erb"
 def assert(value, message); raise message unless value; end
 samples = ['hello', '<%= name %>', '<%= "@email" %>', "before\n  <%- x = 1 -%>\nafter <%= x %>", '<%%= literal %>', '<% [1,2].each do |n| %><%= n %><% end %>', '日本語 <%= "雪" %>']
 name = 'Alice'

@@ -9,4 +9,5 @@ Gem::Specification.new do |s|
   s.files = Dir['lib/**/*.rb', 'web/**/*.rb', 'spnl_*/**/*.rb', 'spnl_*.rb', 'native/*', 'bin/*', 'README.md', 'LICENSE', 'spin.toml', 'spinel-packer']
   s.require_paths = ['.', 'lib']
   s.executables = ['spnl-erb']
+  s.add_runtime_dependency 'erb', '= 2.2.3'
 end

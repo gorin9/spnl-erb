@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+gem "erb", "= 2.2.3" if defined?(Gem)
 require "erb"
 require "ripper"
 

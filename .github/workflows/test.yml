@@ -24,6 +24,7 @@ jobs:
           path: .compiler
       - run: make -C .compiler deps && make -C .compiler -j2
       - run: echo "$GITHUB_WORKSPACE/.compiler/bin" >> "$GITHUB_PATH"
+      - run: gem install erb -v 2.2.3 --no-document
       - run: rake test
       - run: ruby scripts/verify_runtime.rb
         env:
